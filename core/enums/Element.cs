@@ -1,10 +1,10 @@
-namespace ScopeCreep.Core;
+namespace ScopeCreep.Core.enums;
 
 
 
 public enum Element
 {
-    None,
-    Ice,
-    Fire,
+    NONE,
+    ICE,
+    FIRE,
 }

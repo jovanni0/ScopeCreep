@@ -1,4 +1,4 @@
-using ScopeCreep.Core.abilities;
+using ScopeCreep.Core.model;
 
 namespace ScopeCreep.Core.seams;
 
@@ -6,5 +6,5 @@ namespace ScopeCreep.Core.seams;
 
 public interface I_HitResolver
 {
-    bool Hits(Ability ability, Combatant user, Combatant target);
+    bool hits(Ability ability, Combatant user, Combatant target);
 }

@@ -1,0 +1,41 @@
+root = true
+
+[*.cs]
+# constants: SCREAMING_SNAKE_CASE
+dotnet_naming_symbols.constants.applicable_kinds = field, local
+dotnet_naming_symbols.constants.required_modifiers = const
+dotnet_naming_style.screaming_snake.capitalization = all_upper
+dotnet_naming_style.screaming_snake.word_separator = _
+dotnet_naming_rule.constants.symbols = constants
+dotnet_naming_rule.constants.style = screaming_snake
+dotnet_naming_rule.constants.severity = warning
+
+# type parameters: TypeT
+dotnet_naming_symbols.type_params.applicable_kinds = type_parameter
+dotnet_naming_style.type_prefix.capitalization = pascal_case
+dotnet_naming_style.type_prefix.required_prefix = Type
+dotnet_naming_rule.type_params.symbols = type_params
+dotnet_naming_rule.type_params.style = type_prefix
+dotnet_naming_rule.type_params.severity = warning
+
+# types: PascalCase
+dotnet_naming_symbols.types.applicable_kinds = namespace, class, struct, interface, enum, delegate
+dotnet_naming_style.pascal.capitalization = pascal_case
+dotnet_naming_rule.types.symbols = types
+dotnet_naming_rule.types.style = pascal
+dotnet_naming_rule.types.severity = warning
+
+# methods: camelCase
+dotnet_naming_symbols.methods.applicable_kinds = method, local_function
+dotnet_naming_style.camel.capitalization = camel_case
+dotnet_naming_rule.methods.symbols = methods
+dotnet_naming_rule.methods.style = camel
+dotnet_naming_rule.methods.severity = warning
+
+# variables, parameters, fields, properties, events: snake_case
+dotnet_naming_symbols.data.applicable_kinds = local, parameter, field, property, event
+dotnet_naming_style.snake.capitalization = all_lower
+dotnet_naming_style.snake.word_separator = _
+dotnet_naming_rule.data.symbols = data
+dotnet_naming_rule.data.style = snake
+dotnet_naming_rule.data.severity = warning

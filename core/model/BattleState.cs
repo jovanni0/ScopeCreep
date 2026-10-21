@@ -1,18 +1,18 @@
-namespace ScopeCreep.Core;
+using ScopeCreep.Core.enums;
+
+namespace ScopeCreep.Core.model;
 
 
 
 public class BattleState
 {
-    public const int SPRegen = 3;
-    public const int SPCap = 6;
-    
-    public List<Hero> Heroes = new();
-    public Boss Boss = new();
-    
-    public int SpiritPoints = 3;
-    public int Round = 1;
+    public const int SP_REGEN = 3;
+    public const int SP_CAP   = 6;
 
-    public bool Won;
-    public bool Lost;
+    public List<Combatant.Hero> heroes { get; internal set; } = new List<Combatant.Hero>();
+    public Combatant.Boss       boss   { get; internal set; } = new();
+    
+    public int          spirit_points { get; internal set; } = 3;
+    public int          round         { get; internal set; } = 1;
+    public BattleStatus status        { get; internal set; } = BattleStatus.IN_PROGRESS;
 }

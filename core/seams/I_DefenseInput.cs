@@ -1,8 +1,11 @@
+using ScopeCreep.Core.enums;
+using ScopeCreep.Core.model;
+
 namespace ScopeCreep.Core.seams;
 
 
 
 public interface I_DefenseInput
 {
-    Task<DefenseResult> Resolve(BossAttack attack, Hero target);
+    Task<DefenseResult> resolve(BossAttack attack, Combatant.Hero target);
 }

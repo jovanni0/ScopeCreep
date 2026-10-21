@@ -1,35 +1,110 @@
-﻿using ScopeCreep.Core.abilities;
+﻿using ScopeCreep.Core.enums;
+using ScopeCreep.Core.model;
 
 namespace ScopeCreep.Core.Tests;
 
-// tests/BattleTests.cs
-using ScopeCreep.Core;
 
-public class BattleTests {
-    static Battle NewBattle() {
-        var s = new BattleState();
-        s.Boss = new Boss { Name = "Ramen Bowl", Hp = 60, MaxHP = 60 };
-        s.Heroes.Add(new Hero { Name = "Coder", Hp = 40, MaxHP = 40,
-            Abilities = { new Firewall(), new Hotfix(), new CoffeeBreak() } });
-        s.Heroes.Add(new Hero { Name = "Designer", Hp = 40, MaxHP = 40,
-            Abilities = { new CoffeeBreak() } });
-        return new Battle(s);
+
+public class BattleTests
+{
+    private static Battle newBattle()
+    {
+        var state = new BattleState();
+        state.heroes.Add(Combatant.Hero.coder());
+        state.heroes.Add(Combatant.Hero.designer());
+        return new Battle(state);
     }
 
-    [Fact]
-    public void Fire_does_double_damage_in_phase_2() {
-        var b = NewBattle();
-        b.battle_state.Boss.Phase = 2;
-        var coder = b.battle_state.Heroes[0];
-        b.UseAbility(coder, coder.Abilities[0], b.battle_state.Boss);
-        Assert.Equal(40, b.battle_state.Boss.Hp);
-    }
 
     [Fact]
-    public async Task Sp_regens_and_caps_after_boss_turn() {
-        var b = NewBattle();
-        foreach (var h in b.battle_state.Heroes) b.UseAbility(h, new CoffeeBreak(), h);
-        await b.RunBossTurn();
-        Assert.Equal(BattleState.SPCap, b.battle_state.SpiritPoints);   // 3 + 2 + 2 + 3, capped at 6
+    public void firewallDealsNormalDamageInPhase1()
+    {
+        var battle = newBattle();
+        var coder  = battle.state.heroes[0];
+
+        battle.useOffensiveAbility(coder, new Ability.Offensive.Firewall());
+
+        Assert.Equal(50, battle.state.boss.hp);
+    }
+
+
+    [Fact]
+    public void bossHealsAndEntersPhase2WhenDownInPhase1()
+    {
+        var battle = newBattle();
+        var coder  = battle.state.heroes[0];
+
+        battle.dealDamageToBoss(coder, new Ability.Offensive.Firewall(), 60, Element.NONE);
+
+        Assert.Equal(BossPhase.PHASE_2, battle.state.boss.phase);
+        Assert.Equal(60, battle.state.boss.hp);
+        Assert.Equal(BattleStatus.IN_PROGRESS, battle.state.status);
+    }
+
+
+    [Fact]
+    public void firewallDealsDoubleDamageInPhase2()
+    {
+        var battle = newBattle();
+        var coder  = battle.state.heroes[0];
+        battle.dealDamageToBoss(coder, new Ability.Offensive.Firewall(), 60, Element.NONE);
+
+        battle.useOffensiveAbility(coder, new Ability.Offensive.Firewall());
+
+        Assert.Equal(40, battle.state.boss.hp);
+    }
+
+
+    [Fact]
+    public void healCannotExceedMaxHp()
+    {
+        var battle   = newBattle();
+        var coder    = battle.state.heroes[0];
+        var designer = battle.state.heroes[1];
+
+        battle.useSupportAbility(coder, new Ability.Support.Hotfix(), designer);
+
+        Assert.Equal(designer.max_hp, designer.hp);
+    }
+
+
+    [Fact]
+    public async Task spiritPointsRegenerateAfterBossTurn()
+    {
+        var battle   = newBattle();
+        var coder    = battle.state.heroes[0];
+        var designer = battle.state.heroes[1];
+
+        battle.useSupportAbility(coder, new Ability.Support.Hotfix(), designer);   // 3 - 3 = 0
+        battle.useSelfAbility(designer, new Ability.Self.CoffeeBreak());           // 0 + 2 = 2
+        await battle.runBossTurn();                                                // 2 + 3 = 5
+
+        Assert.Equal(5, battle.state.spirit_points);
+    }
+
+
+    [Fact]
+    public void spiritPointsAreCapped()
+    {
+        var battle = newBattle();
+
+        foreach (var hero in battle.state.heroes)
+        {
+            battle.useSelfAbility(hero, new Ability.Self.CoffeeBreak());   // 3 + 2 + 2 = 7, capped
+        }
+
+        Assert.Equal(BattleState.SP_CAP, battle.state.spirit_points);
+    }
+
+
+    [Fact]
+    public void heroCannotActTwiceInOneRound()
+    {
+        var battle = newBattle();
+        var coder  = battle.state.heroes[0];
+        battle.useSelfAbility(coder, new Ability.Self.CoffeeBreak());
+
+        Assert.Throws<InvalidOperationException>(
+            () => battle.useSelfAbility(coder, new Ability.Self.CoffeeBreak()));
     }
 }

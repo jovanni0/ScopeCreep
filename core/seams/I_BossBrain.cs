@@ -1,8 +1,10 @@
+using ScopeCreep.Core.model;
+
 namespace ScopeCreep.Core.seams;
 
 
 
 public interface I_BossBrain
 {
-    BossAttack Pick(BattleState state);
+    BossAttack pickAttack(BattleState state);
 }

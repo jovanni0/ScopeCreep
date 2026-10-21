@@ -1,4 +1,5 @@
-using ScopeCreep.Core.abilities;
+using ScopeCreep.Core.enums;
+using ScopeCreep.Core.model;
 using ScopeCreep.Core.seams;
 
 namespace ScopeCreep.Core;
@@ -7,144 +8,196 @@ namespace ScopeCreep.Core;
 
 public class Battle
 {
-    public BattleState battle_state { get; }
+    public BattleState state { get; }
     
-    public I_HitResolver hit_resolver = new AlwaysHit();
-    public I_BossBrain boss_brain = new StubBrain();
+    public I_HitResolver  hit_resolver  = new AlwaysHit();
+    public I_BossBrain    boss_brain    = new StubBrain();
     public I_DefenseInput defense_input = new NoDefense();
 
-    public event Action<Combatant, int>? Damaged;
-    public event Action<Combatant>? Missed;
-    public event Action<int>? PhaseChanged;
-    public event Action? StateChanged;
+    public event Action<Combatant, int>? damaged;
+    public event Action<Combatant>?      missed;
+    public event Action<BossPhase>?      phase_changed;
+    public event Action?                 state_changed;
 
+    public bool is_hero_phase_over => state.heroes.All(it => it.has_acted || it.is_down);
+    
 
-    public Battle(BattleState battleState)
+    public Battle(BattleState state)
     {
-        battle_state = battleState;
+        this.state = state;
     }
 
     
-    public bool HeroPhaseOver => battle_state.Heroes.All(it => it.HasActed || it.IsDown);
-
-    
-    public bool CanUse(Hero hero, Ability ability)
+    /**
+     *  Check if the hero can use the ability.
+     */
+    public bool canUse(Combatant.Hero hero, Ability ability)
     {
-        if (hero.HasActed || hero.IsDown) return false;
+        if (hero.has_acted || hero.is_down) return false;
+
+        if (state.status != BattleStatus.IN_PROGRESS) return false;
         
-        return battle_state.SpiritPoints >= ability.Cost && !battle_state.Lost;
+        return state.spirit_points >= ability.cost;
+    }
+    
+    
+    public void useOffensiveAbility(Combatant.Hero user, Ability.Offensive ability)
+    {
+        pay(user, ability);
+        ability.execute(this, user, state.boss);
+        finishAction(user);
     }
 
 
-    public void UseAbility(Hero hero, Ability ability, Combatant target)
+    public void useSupportAbility(Combatant.Hero user, Ability.Support ability, Combatant.Hero receiver)
     {
-        if (!CanUse(hero, ability))
-        {
-            throw new InvalidOperationException($"{hero.Name} can't use {ability.Name}");
-        }
-
-        battle_state.SpiritPoints -= ability.Cost;
-        ability.Execute(this, hero, target);
-        hero.HasActed = true;
-        StateChanged?.Invoke();
+        pay(user, ability);
+        ability.execute(this, receiver);
+        finishAction(user);
     }
 
 
-    public async Task RunBossTurn()
+    public void useSelfAbility(Combatant.Hero user, Ability.Self ability)
     {
-        var attack = boss_brain.Pick(battle_state);
-        var targets = attack.HitsAll
-            ? battle_state.Heroes.Where(it => !it.IsDown).ToList()
-            : new List<Hero> { PickRandomHero() };
+        pay(user, ability);
+        ability.execute(this, user);
+        finishAction(user);
+    }
 
-        foreach (Hero target in targets)
+
+    public async Task runBossTurn()
+    {
+        if (state.status != BattleStatus.IN_PROGRESS) return;
+            
+        var attack = boss_brain.pickAttack(state);
+        var targets = attack.hits_all
+            ? state.heroes.Where(it => !it.is_down).ToList()
+            : new List<Combatant.Hero> { pickRandomHero() };
+
+        foreach (Combatant.Hero target in targets)
         {
-            var attack_result = await defense_input.Resolve(attack, target);
+            var attack_result = await defense_input.resolve(attack, target);
 
-            if (attack_result == DefenseResult.Hit)
+            if (attack_result == DefenseResult.HIT)
             {
-                DealDamage(battle_state.Boss, target, attack.Damage, Element.None);
+                dealDamageToHero(target, attack.damage);
             }
         }
 
-        EndRound();
+        endRound();
     }
 
 
-    public void DealDamage(Combatant attacker, Combatant target, int damage, Element element)
+    private void dealDamageToHero(Combatant.Hero target, int damage)
     {
-        if (attacker is Hero && !hit_resolver.Hits(null!, attacker, target))
+        target.takeDamage(damage);
+        damaged?.Invoke(target, damage);
+    }
+
+
+    public void dealDamageToBoss(Combatant.Hero attacker, Ability.Offensive ability, int damage, Element damage_type)
+    {
+        var boss = state.boss;
+            
+        if (!hit_resolver.hits(ability, attacker, boss))
         {
-            Missed?.Invoke(target);
+            missed?.Invoke(boss);
+            return;
         }
 
-        if (target is Boss boss_1 && element != Element.None && element == boss_1.Weakness)
+        if (damage_type == boss.weakness)
         {
             damage *= 2;
         }
 
-        target.Hp = Math.Max(0, target.Hp - damage);
-        Damaged?.Invoke(target, damage);
+        boss.takeDamage(damage);
+        damaged?.Invoke(boss, damage);
 
-        if (target is Boss boss_2 && boss_2.IsDown)
+        if (boss.is_down)
         {
-            onBossDown(boss_2);
+            onBossDown(boss);
         }
     }
-
-
-    public void heal(Combatant target, int amount)
+    
+    
+    public void heal(Combatant receiver, int amount)
     {
-        target.Hp = Math.Min(target.Hp, target.Hp + amount);
-        
-        StateChanged?.Invoke();
+        receiver.heal(amount);
+        state_changed?.Invoke();
     }
 
 
     public void gainSpiritPoints(int amount)
     {
-        battle_state.SpiritPoints = Math.Max(BattleState.SPCap, battle_state.SpiritPoints + amount);
+        state.spirit_points = Math.Min(BattleState.SP_CAP, state.spirit_points + amount);
     }
 
 
-    private void onBossDown(Boss boss)
+    /**
+     *  Pay for the usage of the hero's ability. 
+     */
+    private void pay(Combatant.Hero user, Ability ability)
     {
-        if (boss.Phase == 1)
+        if (!canUse(user, ability))
         {
-            boss.Phase = 2;
-            boss.Hp = boss.MaxHP;
-            PhaseChanged?.Invoke(2);
+            throw new InvalidOperationException($"{user.name} can't use {ability.name}");
+        }
+
+        state.spirit_points -= ability.cost;
+    }
+
+
+    /**
+     *  Mark the hero as having acted and trigger state change.
+     */
+    private void finishAction(Combatant.Hero user)
+    {
+        user.has_acted = true;
+        state_changed?.Invoke();
+    }
+
+
+    /**
+     *  Decide if the boss switches phases or remains down.
+     */
+    private void onBossDown(Combatant.Boss boss)
+    {
+        if (boss.can_advance_phase)
+        {
+            boss.advancePhase();
+            phase_changed?.Invoke(boss.phase);
         }
         else
         {
-            battle_state.Won = true;
+            state.status = BattleStatus.WON;
         }
     }
 
 
-    private void EndRound()
+    private void endRound()
     {
-        bool are_heroes_down = battle_state.Heroes.All(it => it.IsDown);
+        bool are_heroes_down = state.heroes.All(it => it.is_down);
 
         if (are_heroes_down)
         {
-            battle_state.Lost = true;
+            state.status = BattleStatus.LOST;
         }
 
-        foreach (Hero hero in battle_state.Heroes)
+        foreach (Combatant.Hero hero in state.heroes)
         {
-            hero.HasActed = false;
+            hero.has_acted = false;
         }
 
-        battle_state.Round++;
-        StateChanged?.Invoke();
+        state.round++;
+        gainSpiritPoints(BattleState.SP_REGEN);
+        state_changed?.Invoke();
     }
 
 
-    private Hero PickRandomHero()
+    private Combatant.Hero pickRandomHero()
     {
-        return battle_state.Heroes
-            .Where(it => !it.IsDown)
+        return state.heroes
+            .Where(it => !it.is_down)
             .OrderBy(_ => Random.Shared.Next())
             .First();
     }

@@ -1,6 +1,7 @@
+using System.Diagnostics;
 using Godot;
 using ScopeCreep.Core;
-using ScopeCreep.Core.abilities;
+using ScopeCreep.Core.model;
 
 namespace ScopeCreep.Game;
 
@@ -17,36 +18,12 @@ public partial class BattleScene : Control
     public override void _Ready()
     {
         var battle_state = new BattleState();
-        battle_state.Boss = new Boss
-        {
-            Name = "Ramen Bowl", 
-            Hp = 60, 
-            MaxHP = 60
-        };
-        battle_state.Heroes.Add(new Hero
-        {
-            Name = "Coder", 
-            Hp = 40, 
-            MaxHP = 40, 
-            Abilities = {
-                new Firewall(), 
-                new Hotfix(), 
-                new CoffeeBreak()
-            }
-        });
-        battle_state.Heroes.Add(new Hero
-        {
-            Name = "Designer", 
-            Hp = 40, 
-            MaxHP = 40, 
-            Abilities = {
-                new CoffeeBreak()
-            }
-        });
+        battle_state.heroes.Add(Combatant.Hero.coder());
+        battle_state.heroes.Add(Combatant.Hero.designer());
         
         battle = new Battle(battle_state);
-        battle.StateChanged += Refresh;
-        battle.Damaged += (who, damage) => GD.Print($"{who.Name} took {damage}");
+        battle.state_changed += Refresh;
+        battle.damaged += (who, damage) => GD.Print($"{who.name} took {damage}");
 
         Refresh();
     }
@@ -54,8 +31,8 @@ public partial class BattleScene : Control
 
     private void Refresh()
     {
-        SP_label.Text = $"SP {battle.battle_state.SpiritPoints}/{BattleState.SPCap}";
-        boss_HP.Text = $"Boss {battle.battle_state.Boss.Hp}/{battle.battle_state.Boss.MaxHP} (phase {battle.battle_state.Boss.Phase})";
+        SP_label.Text = $"SP {battle.state.spirit_points}/{BattleState.SP_CAP}";
+        boss_HP.Text = $"Boss {battle.state.boss.hp}/{battle.state.boss.max_hp} (phase {battle.state.boss.phase})";
 
         RebuildButtons();
     }
@@ -68,14 +45,14 @@ public partial class BattleScene : Control
             child.QueueFree();
         }
 
-        foreach (var hero in battle.battle_state.Heroes)
+        foreach (var hero in battle.state.heroes)
         {
-            foreach (var ability in hero.Abilities)
+            foreach (var ability in hero.abilities)
             {
                 var button = new Button
                 {
-                    Text = $"{hero.Name}: {ability.Name} ({ability.Cost})",
-                    Disabled = !battle.CanUse(hero, ability)
+                    Text = $"{hero.name}: {ability.name} ({ability.cost})",
+                    Disabled = !battle.canUse(hero, ability)
                 };
                 button.Pressed += () => OnAbility(hero, ability);
                 
@@ -85,15 +62,27 @@ public partial class BattleScene : Control
     }
 
 
-    private async void OnAbility(Hero hero, Ability ability)
+    private async void OnAbility(Combatant.Hero hero, Ability ability)
     {
-        Combatant target = ability.TargetsAlly ? hero : battle.battle_state.Boss;
-        
-        battle.UseAbility(hero, ability, target);
-
-        if (battle.HeroPhaseOver)
+        switch (ability)
         {
-            await battle.RunBossTurn();
+            case Ability.Offensive offensive: 
+                battle.useOffensiveAbility(hero, offensive); 
+                break;
+            case Ability.Support support:
+                var ally = battle.state.heroes.Find(it => it != hero);
+                battle.useSupportAbility(hero, support, ally);
+                break;
+            case Ability.Self self:
+                battle.useSelfAbility(hero, self);
+                break;
+            default: 
+                throw new UnreachableException();
+        }
+
+        if (battle.is_hero_phase_over)
+        {
+            await battle.runBossTurn();
         }
     }
 }

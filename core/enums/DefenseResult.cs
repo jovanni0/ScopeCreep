@@ -1,10 +1,10 @@
-namespace ScopeCreep.Core;
+namespace ScopeCreep.Core.enums;
 
 
 
 public enum DefenseResult
 {
-    Hit,
-    Parry,
-    Dodge,
+    HIT,
+    PARRY,
+    DODGE,
 }

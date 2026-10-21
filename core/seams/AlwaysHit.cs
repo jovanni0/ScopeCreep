@@ -1,4 +1,4 @@
-using ScopeCreep.Core.abilities;
+using ScopeCreep.Core.model;
 
 namespace ScopeCreep.Core.seams;
 
@@ -6,7 +6,7 @@ namespace ScopeCreep.Core.seams;
 
 public class AlwaysHit : I_HitResolver
 {
-    public bool Hits(Ability ability, Combatant user, Combatant target)
+    public bool hits(Ability ability, Combatant user, Combatant target)
     {
         return true;
     }
