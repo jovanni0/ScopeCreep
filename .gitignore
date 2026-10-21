@@ -1,1 +1,12 @@
+# IDEs
 .vscode/
+.idea/
+*.user
+*.DotSettings.user
+
+# .NET build output
+bin/
+obj/
+
+# Godot
+.godot/

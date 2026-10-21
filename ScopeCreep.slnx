@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/core/">
+    <Project Path="core/ScopeCreep.Core.csproj" />
+  </Folder>
+  <Folder Name="/game/">
+    <Project Path="game/ScopeCreep.Game.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ScopeCreep.Core.Tests.csproj" />
+  </Folder>
+</Solution>
