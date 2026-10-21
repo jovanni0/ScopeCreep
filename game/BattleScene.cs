@@ -17,9 +17,32 @@ public partial class BattleScene : Control
     public override void _Ready()
     {
         var battle_state = new BattleState();
-        battle_state.Boss = new Boss { Name = "Ramen Bowl", Hp = 60, MaxHP = 60 };
-        battle_state.Heroes.Add(new Hero { Name = "Coder", Hp = 40, MaxHP = 40, Abilities = { new Firewall(), new Hotfix(), new CoffeeBreak() } });
-        battle_state.Heroes.Add(new Hero { Name = "Designer", Hp = 40, MaxHP = 40, Abilities = { new CoffeeBreak() } });
+        battle_state.Boss = new Boss
+        {
+            Name = "Ramen Bowl", 
+            Hp = 60, 
+            MaxHP = 60
+        };
+        battle_state.Heroes.Add(new Hero
+        {
+            Name = "Coder", 
+            Hp = 40, 
+            MaxHP = 40, 
+            Abilities = {
+                new Firewall(), 
+                new Hotfix(), 
+                new CoffeeBreak()
+            }
+        });
+        battle_state.Heroes.Add(new Hero
+        {
+            Name = "Designer", 
+            Hp = 40, 
+            MaxHP = 40, 
+            Abilities = {
+                new CoffeeBreak()
+            }
+        });
         
         battle = new Battle(battle_state);
         battle.StateChanged += Refresh;
@@ -51,7 +74,7 @@ public partial class BattleScene : Control
             {
                 var button = new Button
                 {
-                    Text = $"{hero.Name}: {ability.Name} ({ability.Cost}",
+                    Text = $"{hero.Name}: {ability.Name} ({ability.Cost})",
                     Disabled = !battle.CanUse(hero, ability)
                 };
                 button.Pressed += () => OnAbility(hero, ability);

@@ -4,8 +4,8 @@ namespace ScopeCreep.Core.abilities;
 
 public class CoffeeBreak : Ability
 {
-    public override string Name => "Hotfix";
-    public override int Cost => 3;
+    public override string Name => "Coffee Break";
+    public override int Cost => 0;
     public override bool TargetsAlly => false;
 
 
