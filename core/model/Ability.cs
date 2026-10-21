@@ -30,13 +30,51 @@ public abstract record Ability
 
         /**
          *  Fire attack damage to the boss.
-         *  TODO: burn chance.
+         *  TODO: implement burn chance.
          */
         public sealed record Firewall() : Offensive("Firewall", 2)
         {
             public override void execute(Battle battle, Combatant.Hero user, Combatant.Boss target)
             {
                 battle.dealDamageToBoss(user, this, 10, Element.FIRE);
+            }
+        }
+
+
+        /**
+         *  Ice attack damage to the boss.
+         *  TODO: implement freeze chance.
+         */
+        public sealed record FreezeFrame() : Offensive("Freeze Frame", 2)
+        {
+            public override void execute(Battle battle, Combatant.Hero user, Combatant.Boss target)
+            {
+                battle.dealDamageToBoss(user, this, 10, Element.ICE);
+            }
+        }
+
+
+        /**
+         *  Big hitter attack damage, with high change of the boss dodging it.
+         */
+        public sealed record PixelPerfect() : Offensive("Pixel Perfect", 3)
+        {
+            public override void execute(Battle battle, Combatant.Hero user, Combatant.Boss target)
+            {
+                battle.dealDamageToBoss(user, this, 20, Element.NONE);
+            }
+        }
+
+
+        /**
+         *  Attack and defense drop on the boss.
+         *  TODO: implement stat drop on the boss.
+         */
+        public sealed record NegativeSpace() : Offensive("Negative Space", 3)
+        {
+            public override void execute(Battle battle, Combatant.Hero user, Combatant.Boss target)
+            {
+                
             }
         }
     }
@@ -61,6 +99,19 @@ public abstract record Ability
             public override void execute(Battle battle, Combatant.Hero receiver)
             {
                 battle.heal(receiver, 15);
+            }
+        }
+
+
+        /**
+         *  Removes debuffs on entire team.
+         *  TODO: implement.
+         */
+        public sealed record GitRevert() : Support("Git Revert", 1)
+        {
+            public override void execute(Battle battle, Combatant.Hero receiver)
+            {
+                
             }
         }
     }

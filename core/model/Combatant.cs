@@ -65,9 +65,10 @@ public abstract class Combatant
         public static Hero coder() => new Hero(
             "The Coder",
             [
+                new Ability.Self.CoffeeBreak(),
                 new Ability.Offensive.Firewall(),
-                new Ability.Support.Hotfix(),
-                new Ability.Self.CoffeeBreak()
+                new Ability.Support.GitRevert(),
+                new Ability.Support.Hotfix()
             ],
             40
         );
@@ -76,7 +77,10 @@ public abstract class Combatant
         public static Hero designer() => new Hero(
             "The Designer",
             [
-                new Ability.Self.CoffeeBreak()
+                new Ability.Self.CoffeeBreak(),
+                new Ability.Offensive.FreezeFrame(),
+                new Ability.Offensive.NegativeSpace(),
+                new Ability.Offensive.PixelPerfect()
             ],
             40
         );

@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://staw7fvjyich"]
+
+[ext_resource type="Script" uid="uid://d4ltfbpsyc5yw" path="res://HeroPanel.cs" id="1_chjib"]
+
+[node name="HeroPanel" type="PanelContainer" unique_id=1405168389 node_paths=PackedStringArray("name_label", "hp_bar", "hp_label", "target_button", "abilities_container")]
+custom_minimum_size = Vector2(280, 0)
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_chjib")
+name_label = NodePath("VBox/NameLabel")
+hp_bar = NodePath("VBox/HpBar")
+hp_label = NodePath("VBox/HpLabel")
+target_button = NodePath("VBox/TargetButton")
+abilities_container = NodePath("VBox/Abilities")
+
+[node name="VBox" type="VBoxContainer" parent="." unique_id=2129986380]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="NameLabel" type="Label" parent="VBox" unique_id=348445598]
+layout_mode = 2
+
+[node name="HpBar" type="ProgressBar" parent="VBox" unique_id=498380148]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+show_percentage = false
+
+[node name="HpLabel" type="Label" parent="VBox" unique_id=497795561]
+layout_mode = 2
+
+[node name="TargetButton" type="Button" parent="VBox" unique_id=58130390]
+visible = false
+layout_mode = 2
+text = "Target"
+
+[node name="Abilities" type="VBoxContainer" parent="VBox" unique_id=976114933]
+layout_mode = 2
