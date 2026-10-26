@@ -4,12 +4,13 @@ using Godot;
 using ScopeCreep.Core;
 using ScopeCreep.Core.enums;
 using ScopeCreep.Core.model;
+using ScopeCreep.Core.seams;
 
 namespace ScopeCreep.Game;
 
 
 
-public partial class BattleScene : Control
+public partial class BattleScene : Control, I_DefenseInput
 {
 	[ExportGroup("Top bar")]
 	[Export] private Label round_label = null!;
@@ -19,6 +20,8 @@ public partial class BattleScene : Control
 	[Export] private ColorRect   boss_sprite   = null!;
 	[Export] private ProgressBar boss_hp_bar   = null!;
 	[Export] private Label       boss_hp_label = null!;
+	[Export] private ColorRect   coder_sprite    = null!;
+	[Export] private ColorRect   designer_sprite = null!;
 
 	[ExportGroup("Bottom panel")]
 	[Export] private HeroPanel     coder_panel    = null!;
@@ -32,6 +35,7 @@ public partial class BattleScene : Control
 	[Export] private Control end_screen     = null!;
 	[Export] private Label   result_label   = null!;
 	[Export] private Button  restart_button = null!;
+	[Export] private Label   defense_prompt = null!;
 
 	private Battle      battle      = null!;
 	private HeroPanel[] hero_panels = [];
@@ -41,6 +45,13 @@ public partial class BattleScene : Control
 
 	private bool is_targeting => pending_support is not null;
 
+	/** Defense input state — set during the boss attack window. */
+	private TaskCompletionSource<DefenseResult>? defense_tcs;
+	private Combatant.Hero? defense_target;
+
+	/** Duration in seconds the player has to press a defense key. */
+	private const float DEFENSE_WINDOW = 1.5f;
+
 
 	public override void _Ready()
 	{
@@ -48,6 +59,9 @@ public partial class BattleScene : Control
 		state.heroes.Add(Combatant.Hero.coder());
 		state.heroes.Add(Combatant.Hero.designer());
 		battle = new Battle(state);
+
+		// Wire the scene itself as the defense input resolver
+		battle.defense_input = this;
 
 		hero_panels = [coder_panel, designer_panel];
 		for (int i = 0; i < hero_panels.Length; i++)
@@ -64,12 +78,18 @@ public partial class BattleScene : Control
 		battle.damaged       += (who, amount) => writeLog($"{who.name} takes {amount} damage");
 		battle.missed        += who => writeLog($"Missed {who.name}!");
 		battle.phase_changed += phase => writeLog($"The Ramen Bowl enters {phase}!");
+		battle.dodged        += hero => writeLog($"{hero.name} dodged the attack!");
+		battle.parried       += hero => writeLog($"{hero.name} parried the attack back!");
+
+		defense_prompt.Visible = false;
 
 		restart_button.Pressed += () => GetTree().ReloadCurrentScene();
 
 		refresh();
 	}
 
+
+	// ─── Input handling ──────────────────────────────────────────────────
 
 	public override void _UnhandledInput(InputEvent input_event)
 	{
@@ -78,8 +98,152 @@ public partial class BattleScene : Control
 			pending_support = null;
 			refresh();
 		}
+
+		// Defense key handling during the boss attack window
+		if (defense_tcs is not null && defense_target is not null && input_event is InputEventKey key_event && key_event.Pressed && !key_event.Echo)
+		{
+			char pressed = char.ToLower((char)key_event.Unicode);
+
+			if (pressed == defense_target.parry_key)
+			{
+				defense_tcs.TrySetResult(DefenseResult.PARRY);
+			}
+			else if (pressed == defense_target.dodge_key)
+			{
+				defense_tcs.TrySetResult(DefenseResult.DODGE);
+			}
+		}
 	}
 
+
+	// ─── I_DefenseInput implementation ───────────────────────────────────
+
+	public async Task<DefenseResult> resolve(BossAttack attack, Combatant.Hero target)
+	{
+		defense_target = target;
+		defense_tcs = new TaskCompletionSource<DefenseResult>();
+
+		// Show the telegraph: who is being targeted and which keys to press
+		defense_prompt.Visible = true;
+		defense_prompt.Text =
+			$"» {attack.name} → {target.name}! «\n" +
+			$"[{char.ToUpper(target.parry_key)}] Parry   [{char.ToUpper(target.dodge_key)}] Dodge";
+
+		// Highlight the targeted hero sprite
+		var sprite = getSpriteForHero(target);
+		var original_color = sprite.Color;
+		sprite.Color = new Color(1f, 0.3f, 0.3f);   // flash red
+
+		// Start the timer — if it expires the attack lands
+		var timer = GetTree().CreateTimer(DEFENSE_WINDOW);
+		timer.Timeout += () => defense_tcs?.TrySetResult(DefenseResult.HIT);
+
+		var result = await defense_tcs.Task;
+
+		// Clean up
+		defense_tcs = null;
+		defense_target = null;
+		defense_prompt.Visible = false;
+		sprite.Color = original_color;
+
+		// Play the appropriate animation
+		await playDefenseAnimation(result, target);
+
+		return result;
+	}
+
+
+	// ─── Defense animations ──────────────────────────────────────────────
+
+	private async Task playDefenseAnimation(DefenseResult result, Combatant.Hero hero)
+	{
+		var sprite = getSpriteForHero(hero);
+
+		switch (result)
+		{
+			case DefenseResult.DODGE:
+				await animateDodge(sprite);
+				break;
+
+			case DefenseResult.PARRY:
+				await animateParry(sprite);
+				break;
+
+			case DefenseResult.HIT:
+				await animateHit(sprite);
+				break;
+		}
+	}
+
+
+	/**
+	 *  Dodge: slide the hero sideways and back.
+	 */
+	private async Task animateDodge(ColorRect sprite)
+	{
+		var original_pos = sprite.Position;
+		var dodge_offset = new Vector2(80, 0);
+
+		var tween = CreateTween();
+		tween.TweenProperty(sprite, "position", original_pos + dodge_offset, 0.15)
+			.SetTrans(Tween.TransitionType.Quad)
+			.SetEase(Tween.EaseType.Out);
+		tween.TweenProperty(sprite, "position", original_pos, 0.25)
+			.SetTrans(Tween.TransitionType.Quad)
+			.SetEase(Tween.EaseType.In);
+
+		await ToSignal(tween, Tween.SignalName.Finished);
+	}
+
+
+	/**
+	 *  Parry: flash white and lunge toward the boss briefly.
+	 */
+	private async Task animateParry(ColorRect sprite)
+	{
+		var original_pos = sprite.Position;
+		var original_color = sprite.Color;
+		var lunge_offset = new Vector2(40, 0);
+
+		var tween = CreateTween();
+		// Flash white and lunge forward (toward boss = rightward)
+		tween.TweenProperty(sprite, "color", Colors.White, 0.08);
+		tween.TweenProperty(sprite, "position", original_pos + lunge_offset, 0.1)
+			.SetTrans(Tween.TransitionType.Back)
+			.SetEase(Tween.EaseType.Out);
+		// Return
+		tween.TweenProperty(sprite, "position", original_pos, 0.2)
+			.SetTrans(Tween.TransitionType.Quad)
+			.SetEase(Tween.EaseType.In);
+		tween.TweenProperty(sprite, "color", original_color, 0.15);
+
+		await ToSignal(tween, Tween.SignalName.Finished);
+	}
+
+
+	/**
+	 *  Hit: quick red flash.
+	 */
+	private async Task animateHit(ColorRect sprite)
+	{
+		var original_color = sprite.Color;
+
+		var tween = CreateTween();
+		tween.TweenProperty(sprite, "color", new Color(1f, 0.2f, 0.2f), 0.08);
+		tween.TweenProperty(sprite, "color", original_color, 0.25);
+
+		await ToSignal(tween, Tween.SignalName.Finished);
+	}
+
+
+	private ColorRect getSpriteForHero(Combatant.Hero hero)
+	{
+		// Match by name — coder is heroes[0], designer is heroes[1]
+		return hero == battle.state.heroes[0] ? coder_sprite : designer_sprite;
+	}
+
+
+	// ─── UI refresh ──────────────────────────────────────────────────────
 
 	private void refresh()
 	{
@@ -112,6 +276,8 @@ public partial class BattleScene : Control
 			: "THE SCOPE WON";
 	}
 
+
+	// ─── Ability usage ───────────────────────────────────────────────────
 
 	private async void onAbilityPressed(Combatant.Hero hero, Ability ability)
 	{
@@ -157,7 +323,7 @@ public partial class BattleScene : Control
 		refresh();
 		writeLog("— The Ramen Bowl attacks —");
 
-		// short pause so the boss turn reads as a turn; replaced by animations later
+		// short pause so the boss turn reads as a turn
 		await ToSignal(GetTree().CreateTimer(0.6), SceneTreeTimer.SignalName.Timeout);
 		await battle.runBossTurn();
 

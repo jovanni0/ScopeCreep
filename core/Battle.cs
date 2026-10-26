@@ -18,6 +18,8 @@ public class Battle
     public event Action<Combatant>?      missed;
     public event Action<BossPhase>?      phase_changed;
     public event Action?                 state_changed;
+    public event Action<Combatant.Hero>? dodged;
+    public event Action<Combatant.Hero>? parried;
 
     public bool is_hero_phase_over => state.heroes.All(it => it.has_acted || it.is_down);
     
@@ -78,9 +80,25 @@ public class Battle
         {
             var attack_result = await defense_input.resolve(attack, target);
 
-            if (attack_result == DefenseResult.HIT)
+            switch (attack_result)
             {
-                dealDamageToHero(target, attack.damage);
+                case DefenseResult.HIT:
+                    dealDamageToHero(target, attack.damage);
+                    break;
+                    
+                case DefenseResult.DODGE:
+                    dodged?.Invoke(target);
+                    break;
+                    
+                case DefenseResult.PARRY:
+                    parried?.Invoke(target);
+                    state.boss.takeDamage(attack.damage / 2);
+                    damaged?.Invoke(state.boss, attack.damage / 2);
+                    if (state.boss.is_down)
+                    {
+                        onBossDown(state.boss);
+                    }
+                    break;
             }
         }
 
