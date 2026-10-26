@@ -53,12 +53,16 @@ public abstract class Combatant
     {
         public IReadOnlyList<Ability> abilities { get; }
         public bool                   has_acted { get; internal set; }
+        public char                   parry_key { get; }
+        public char                   dodge_key { get; }
         
         
-        private Hero(string name, List<Ability> abilities, int max_hp) : base(name, max_hp)
+        private Hero(string name, List<Ability> abilities, int max_hp, char parry_key, char dodge_key) : base(name, max_hp)
         {
             this.abilities = abilities;
             this.has_acted = false;
+            this.parry_key = parry_key;
+            this.dodge_key = dodge_key;
         }
 
 
@@ -70,7 +74,9 @@ public abstract class Combatant
                 new Ability.Support.GitRevert(),
                 new Ability.Support.Hotfix()
             ],
-            40
+            40,
+            parry_key: 'q',
+            dodge_key: 'w'
         );
 
 
@@ -82,7 +88,9 @@ public abstract class Combatant
                 new Ability.Offensive.NegativeSpace(),
                 new Ability.Offensive.PixelPerfect()
             ],
-            40
+            40,
+            parry_key: 'o',
+            dodge_key: 'p'
         );
     }
 }
